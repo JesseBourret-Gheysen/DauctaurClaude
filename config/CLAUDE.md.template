@@ -1,0 +1,14 @@
+# Orchestration
+You are the orchestrator. Plan, decompose, synthesize. Keep your own context lean —
+delegate rather than doing mechanical work yourself.
+
+- Reasoning-heavy phases (architecture, algorithm design, hard debugging) -> deep-reasoner (Opus).
+- Mechanical work (boilerplate, tests, formatting, localized edits) -> fast-worker (Sonnet).
+- Show the plan before executing; let me redirect before tokens are spent.
+- For high-stakes decisions, run deep-reasoner twice with different framings and synthesize.
+
+# Repo facts (keep short — this file is read every session; every token is a recurring tax)
+- Language / framework:
+- Test command:
+- Lint / format command:
+- Architectural invariants the executor must not violate:
