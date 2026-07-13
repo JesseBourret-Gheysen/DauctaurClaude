@@ -40,12 +40,28 @@ if [ ! -d "$SRC" ]; then echo "ERROR: config/ not found next to setup.sh" >&2; e
 run "mkdir -p '$DEST/agents'"
 
 # 2. subagents (back up any existing file of the same name)
-for f in deep-reasoner fast-worker; do
+for src_agent in "$SRC"/agents/*.md; do
+  [ -e "$src_agent" ] || continue
+  f="$(basename "$src_agent" .md)"
   target="$DEST/agents/$f.md"
   if [ -f "$target" ]; then run "cp '$target' '$target.bak-$STAMP'"; say "backed up existing $f.md"; fi
-  run "cp '$SRC/agents/$f.md' '$target'"
+  run "cp '$src_agent' '$target'"
   say "installed agents/$f.md"
 done
+
+# 2b. skills (each skill is a directory containing SKILL.md)
+if [ -d "$SRC/skills" ]; then
+  run "mkdir -p '$DEST/skills'"
+  for d in "$SRC"/skills/*/; do
+    [ -d "$d" ] || continue
+    name="$(basename "$d")"
+    target="$DEST/skills/$name"
+    if [ -d "$target" ]; then run "cp -r '$target' '$target.bak-$STAMP'"; say "backed up existing skill $name"; fi
+    run "mkdir -p '$target'"
+    run "cp -r '$d.' '$target/'"
+    say "installed skills/$name"
+  done
+fi
 
 # 3. settings.json — merge our keys into existing settings, don't clobber the rest
 SETTINGS="$DEST/settings.json"
@@ -102,7 +118,8 @@ Done.
 Verify:
   1. Start Claude Code:            claude
   2. Confirm main model:           /model     (should show opusplan)
-  3. List agents:                  /agents    (deep-reasoner, fast-worker)
+  3. List agents:                  /agents    (deep-reasoner, fast-worker, scraper-researcher)
+  3b. List skills:                 type / and check the installed skills appear
   4. Test routing (KNOWN BUG on some versions): invoke deep-reasoner and confirm
      the response is labeled Opus, not the parent model. If it resolves to the
      parent, rely on opusplan alone — it is reliable.

@@ -1,0 +1,29 @@
+{
+  "_README": "Template only — NOT auto-installed. Copy entries you actually need into a project .mcp.json (shared, checked in) or add privately with `claude mcp add`. Keys starting with _ are comments; remove them. See docs/mcp-guide.md for scopes, Tool Search, and the add-a-server checklist.",
+  "mcpServers": {
+    "example-http-server": {
+      "_comment": "Remote server over HTTP (recommended transport). OAuth-capable; headers support ${ENV_VAR} expansion so no literal secrets live in a checked-in file.",
+      "type": "http",
+      "url": "https://example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${EXAMPLE_API_KEY}"
+      }
+    },
+    "example-stdio-server": {
+      "_comment": "Local process over stdio. ${VAR:-default} expansion works in command/args/env.",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@example/mcp-server"],
+      "env": {
+        "EXAMPLE_DATA_DIR": "${EXAMPLE_DATA_DIR:-/home/jesse/docker/example/data}"
+      },
+      "timeout": 30000
+    },
+    "example-always-loaded": {
+      "_comment": "alwaysLoad exempts this server's tools from Tool Search deferral — use only for tools needed constantly; it spends context every session.",
+      "type": "http",
+      "url": "https://example.com/mcp",
+      "alwaysLoad": true
+    }
+  }
+}

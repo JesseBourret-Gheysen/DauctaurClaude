@@ -36,14 +36,30 @@ $agentsDir = Join-Path $ClaudeHome 'agents'
 if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $agentsDir | Out-Null }
 
 # 2. subagents (back up existing)
-foreach ($f in @('deep-reasoner','fast-worker')) {
-  $target = Join-Path $agentsDir "$f.md"
+foreach ($srcAgent in Get-ChildItem (Join-Path $Src 'agents') -Filter '*.md' -File) {
+  $target = Join-Path $agentsDir $srcAgent.Name
   if (Test-Path $target) {
     if (-not $DryRun) { Copy-Item $target "$target.bak-$Stamp" -Force }
-    Say "backed up existing $f.md"
+    Say "backed up existing $($srcAgent.Name)"
   }
-  if ($DryRun) { Say "[dry-run] install agents/$f.md" }
-  else { Copy-Item (Join-Path $Src "agents/$f.md") $target -Force; Say "installed agents/$f.md" }
+  if ($DryRun) { Say "[dry-run] install agents/$($srcAgent.Name)" }
+  else { Copy-Item $srcAgent.FullName $target -Force; Say "installed agents/$($srcAgent.Name)" }
+}
+
+# 2b. skills (each skill is a directory containing SKILL.md)
+$srcSkills = Join-Path $Src 'skills'
+if (Test-Path $srcSkills) {
+  $skillsDir = Join-Path $ClaudeHome 'skills'
+  if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $skillsDir | Out-Null }
+  foreach ($d in Get-ChildItem $srcSkills -Directory) {
+    $target = Join-Path $skillsDir $d.Name
+    if (Test-Path $target) {
+      if (-not $DryRun) { Copy-Item $target "$target.bak-$Stamp" -Recurse -Force }
+      Say "backed up existing skill $($d.Name)"
+    }
+    if ($DryRun) { Say "[dry-run] install skills/$($d.Name)" }
+    else { Copy-Item $d.FullName $target -Recurse -Force; Say "installed skills/$($d.Name)" }
+  }
 }
 
 # 3. settings.json - merge our keys into existing settings
@@ -86,7 +102,7 @@ Write-Host "Done."
 Write-Host "Verify:"
 Write-Host "  1. Start Claude Code:   claude"
 Write-Host "  2. Confirm main model:  /model      (should show opusplan)"
-Write-Host "  3. List agents:         /agents     (deep-reasoner, fast-worker)"
+Write-Host "  3. List agents:         /agents     (deep-reasoner, fast-worker, scraper-researcher)"
 Write-Host "  4. Test routing (KNOWN BUG on some versions): invoke deep-reasoner and"
 Write-Host "     confirm it runs as Opus, not the parent model. If it resolves to the"
 Write-Host "     parent, rely on opusplan alone - it is reliable."

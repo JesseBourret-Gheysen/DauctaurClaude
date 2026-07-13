@@ -14,7 +14,9 @@ All facts below verified against Claude Code official docs (`code.claude.com/doc
 | Opus 4.8 | 5 | 25 | Planner / reasoner / architect / hard debug |
 | Sonnet 5 (intro, ≤Aug 31 2026) | 2 | 10 | Executor: code gen, edits, tests, boilerplate |
 | Sonnet 5 (standard, post-Aug 31) | 3 | 15 | Executor |
-| Haiku | (lowest) | (lowest) | Trivial lookups, formatting, log parsing, background |
+| Haiku 4.5 | 1 | 5 | Trivial lookups, formatting, log parsing, background |
+
+Cache multipliers (all models): 5-min cache write 1.25×, 1-hour write 2×, cache read 0.1× of base input.
 
 Output tokens dominate cost. Every plan Fable writes costs ~5x the same text from Sonnet. On a Claude.ai subscription, a Fable session burns ~2x an Opus session and several times a Sonnet session against weekly limits. Reported savings from correct tiering: ~40% (1 Opus orchestrator + 4 Sonnet workers vs 5 Opus) up to 5–10x (Opus orchestrator + Haiku/Sonnet subagents) with no meaningful quality loss on well-specified work.
 
@@ -95,10 +97,11 @@ You are the executor. Implement exactly the provided spec. If the spec is ambigu
 ```
 
 Notes:
-- `model` field accepts `sonnet|opus|haiku|inherit` or a pinned ID (`claude-opus-4-8`). `inherit` = same as main session.
+- `model` field accepts `sonnet|opus|haiku|fable|inherit` or a pinned ID (`claude-opus-4-8`). `inherit` (the default) = same as main session.
+- Documented resolution order: `CLAUDE_CODE_SUBAGENT_MODEL` env var > per-invocation `model` parameter > agent frontmatter `model` > `inherit`.
 - `effort` in subagent frontmatter overrides session effort while that agent runs (but not the `CLAUDE_CODE_EFFORT_LEVEL` env var).
 - New agent files are picked up only on session restart.
-- **Known bug (verify on your version):** multiple GitHub reports of subagent `model` routing being ignored and resolving to the parent model. Confirm it works: run the reasoner, check the model label in output. If broken, fall back to `opusplan` (Pattern A) which is reliable, or pin models via env vars.
+- **Known bug (verify on your version):** as of 2026-07-12, [#43869](https://github.com/anthropics/claude-code/issues/43869) (all routing mechanisms silently resolve to the parent model) is still **open**, while [#26179](https://github.com/anthropics/claude-code/issues/26179) (default subagents to Sonnet) was closed as not-planned. The current docs describe the working precedence chain above, which conflicts with #43869 — likely fixed on newer versions, but confirm on yours: run the reasoner, check the model label in output. If broken, fall back to `opusplan` (Pattern A) which is reliable, or pin models via env vars.
 
 ### 3.3 `CLAUDE.md` — orchestration instructions (per project root)
 
@@ -143,12 +146,13 @@ Keep `CLAUDE.md` short and factual. It loads into every session's context; bloat
 
 ## 5. Bio-research gotcha (directly relevant to you)
 
-Fable 5 runs safety classifiers on **cybersecurity and biology** content. A flagged request triggers **automatic silent fallback to Opus 4.8**, and the session **stays on Opus until you run `/model fable` again**. Your workspace context (CLAUDE.md, git status, a biotech repo) can trip this on the very first message.
+Fable 5 runs safety classifiers on **cybersecurity, biology & chemistry, distillation, and frontier-LLM-development** content. A flagged request is **re-run on Opus 4.8 with a notice shown in the transcript** (it is *not* silent — an earlier revision of this doc said otherwise), and the session then **stays on Opus until you run `/model fable` again**. Anthropic reports >95% of Fable sessions involve no fallback; a fallback is by design better than an outright refusal. Your workspace context (CLAUDE.md, git status, a biotech repo) can still trip this early in a session.
 
 Implications:
-- If Fable "feels different" mid-project, check the active model before debugging your setup — you may have been rerouted.
-- For biology/aptamer/synbio work, don't assume you're paying Fable rates after a flag; you may silently be on Opus (cheaper — sometimes a feature).
-- To enable clean auto-fallback on third-party providers, set `ANTHROPIC_DEFAULT_FABLE_MODEL` and `ANTHROPIC_DEFAULT_OPUS_MODEL` to your provider's model IDs; otherwise flagged requests hard-refuse instead of falling back.
+- Notices are easy to miss in a long transcript. If Fable "feels different" mid-project, check `/model` before debugging your setup — you may have been rerouted.
+- For biology/aptamer/synbio work, don't assume you're paying Fable rates after a flag; you may be on Opus (cheaper — sometimes a feature).
+- To enable clean auto-fallback on third-party providers (Bedrock/Vertex/Foundry), set `ANTHROPIC_DEFAULT_FABLE_MODEL` and `ANTHROPIC_DEFAULT_OPUS_MODEL` to your provider's model IDs; otherwise flagged requests hard-refuse instead of falling back.
+- Caveat from the field: one user-filed report ([#67246](https://github.com/anthropics/claude-code/issues/67246), unconfirmed) says `/model fable` sometimes fails to switch back ("Kept model as Opus 4.8"). If that hits you, restart the session.
 
 ---
 
@@ -159,6 +163,8 @@ Implications:
 - **Plan before executing** so you catch wrong approaches before Sonnet spends tokens implementing them.
 - **Pin executor to cheap, planner to strong** — never invert.
 - **Don't run everything through Fable.** It's the most common overspend; reserve for multi-sitting autonomy.
+- **Sometimes-needed know-how belongs in a skill, not CLAUDE.md.** A skill costs ~one description line until invoked; CLAUDE.md is charged every turn. See [`skills-guide.md`](skills-guide.md).
+- **MCP servers are near-free at rest** (Tool Search defers schemas by default), but a capable CLI via Bash is still cheaper and simpler. See [`mcp-guide.md`](mcp-guide.md).
 
 ---
 
@@ -175,6 +181,10 @@ Minimum viable version if you do nothing else: **`/model opusplan` + `/effort hi
 
 ## Sources
 - [Claude Code — Model configuration (official docs)](https://code.claude.com/docs/en/model-config)
+- [Claude Code — Skills (official docs)](https://code.claude.com/docs/en/skills) · [Sub-agents](https://code.claude.com/docs/en/sub-agents) · [MCP](https://code.claude.com/docs/en/mcp)
+- [Claude Fable 5 / Mythos 5 announcement (fallback behavior)](https://www.anthropic.com/news/claude-fable-5-mythos-5)
+- [Anthropic — Code execution with MCP (token-efficiency pattern)](https://www.anthropic.com/engineering/code-execution-with-mcp)
+- [Anthropic — April 23 postmortem (the real story behind "nerfed")](https://www.anthropic.com/engineering/april-23-postmortem)
 - [Claude Code model configuration — Help Center](https://support.claude.com/en/articles/11940350-claude-code-model-configuration)
 - [Fable 5 as Orchestrator, Sonnet as Executor — Data Science Dojo](https://datasciencedojo.com/blog/claude-code-fable-5-orchestrator-workflow/)
 - [Save Tokens with Opus Plan Mode — MindStudio](https://www.mindstudio.ai/blog/claude-code-opus-plan-mode-token-savings)
